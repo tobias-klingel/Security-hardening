@@ -1,0 +1,221 @@
+#Run in the console
+#ansible-playbook -i hosts lynis_hardeningV2.yml -u to --ask-become-pass --ask-pass
+
+---
+- name: Address Lynis findings
+  hosts: MYHOST #<------------------- Change!!!
+  become: yes
+  tasks:
+    - name: Update and Upgrade All Packages
+      apt:
+        update_cache: yes
+        upgrade: 'dist'
+
+###################################################
+    - name: Install required packages
+      apt:
+        name: "{{ item }}"
+        state: latest
+      loop:
+        - libpam-tmpdir
+        - apt-listchanges
+        - needrestart
+        - fail2ban
+        - debsums
+        - apt-show-versions
+        - rkhunter
+        - clamav
+      ignore_errors: yes
+
+    - name: Copy Fail2Ban config
+      command: cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
+
+    - name: Enable and start Fail2Ban
+      systemd:
+        name: fail2ban
+        enabled: yes
+        state: started
+###################################################
+    - name: Disable unneeded protocols
+      lineinfile:
+        path: /etc/modprobe.d/blacklist.conf
+        line: 'blacklist {{ item }}'
+        create: yes
+      loop:
+        - dccp
+        - sctp
+        - rds
+        - tipc
+
+
+###################################################
+    - name: Install auditd for collecting audit information
+      apt:
+        name: auditd
+        state: latest
+
+    - name: Enable auditd service
+      systemd:
+        name: auditd
+        enabled: yes
+        state: started
+###################################################
+    - name: Install sysstat for accounting
+      apt:
+        name: sysstat
+        state: latest
+
+###################################################
+    - name: Create banners for unauthorized users
+      copy:
+        dest: "/etc/{{ item }}"
+        content: 'Unauthorized access is prohibited.'
+      loop:
+        - issue
+        - issue.net
+
+###################################################
+    - name: Install chkrootkit malware scanner
+      apt:
+        name: chkrootkit
+        state: latest
+
+    # - name: Run chkrootkit
+    #   command: chkrootkit
+
+###################################################
+    - name: Correct permissions for CUPS config
+      file:
+        path: /etc/cups/cupsd.conf
+        owner: root
+        group: root
+        mode: '0600'
+
+    - name: Correct permissions for sudoers.d
+      file:
+        path: /etc/sudoers.d
+        state: directory
+        mode: '0750'
+
+    - name: Remove postfix banner
+      lineinfile:
+        path: /etc/postfix/main.cf
+        line: 'smtpd_banner = $myhostname ESMTP'
+        state: present
+
+###################################################
+    - name: Install UFW
+      package:
+        name: ufw
+        state: present
+
+    - name: Allow SSH through UFW
+      ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: Allow SSH on port 2222 through UFW
+      command:
+        cmd: "ufw allow 2222"
+
+    - name: Enable UFW
+      ufw:
+        state: enabled
+        policy: deny
+###################################################
+
+    - name: Uninstall gcc
+      package:
+        name: gcc
+        state: absent
+
+###################################################
+    - name: Disable core dumps
+      lineinfile:
+        path: /etc/security/limits.conf
+        line: '* hard core 0'
+
+    - name: Set password hashing rounds
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^SHA_CRYPT_MIN_ROUNDS'
+        line: 'SHA_CRYPT_MIN_ROUNDS 5000'
+
+
+###################################################
+    - name: Update all packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+###################################################
+
+    - name: Autoremove unnecessary packages
+      command: apt autoremove -y
+
+###################################################
+
+    - name: Autoclean unnecessary packages
+      command: apt autoclean -y
+
+
+###################################################
+    - name: Add authorized key from file
+      ansible.posix.authorized_key:
+        user: to #<-------------- Change!
+        state: present
+        key: "{{ lookup('file', '/Users/XXXXXX/.ssh/ssh-XXXXXX-may23.pub') }}" #<---------------Change!
+
+
+    - name: Harden SSH configuration
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?{{ item.key }}'
+        line: '{{ item.key }} {{ item.value }}'
+      loop:
+        - { key: 'PermitRootLogin', value: 'no' }
+        - { key: 'PasswordAuthentication', value: 'no' }
+        - { key: 'PermitEmptyPasswords', value: 'no' }
+        - { key: 'ChallengeResponseAuthentication', value: 'no' }
+        - { key: 'PubkeyAuthentication', value: 'yes' }
+        - { key: 'AllowTcpForwarding', value: 'no' }
+        - { key: 'ClientAliveCountMax', value: '2' }
+        - { key: 'Compression', value: 'no' }
+        - { key: 'LogLevel', value: 'VERBOSE' }
+        - { key: 'MaxAuthTries', value: '3' }
+        - { key: 'MaxSessions', value: '2' }
+        - { key: 'Port', value: '2222' } #<--------------- This will change the PORT!!! You will need to conenct via a different port after!
+        - { key: 'TCPKeepAlive', value: 'no' }
+        - { key: 'X11Forwarding', value: 'no' }
+        - { key: 'AllowAgentForwarding', value: 'no' }
+        - { key: 'LoginGraceTime', value: '20' }
+        - { key: 'KerberosAuthentication', value: 'no' }
+        - { key: 'GSSAPIAuthentication', value: 'no' }
+        - { key: 'PermitUserEnvironment', value: 'no' }
+        - { key: 'PermitTunnel', value: 'no' }
+        - { key: 'DebianBanner', value: 'no' }
+
+
+    - name: Restart SSH
+      systemd:
+        name: sshd
+        state: restarted
+    
+    ###################################################
+    - name: Harden systemd services
+      systemd:
+        daemon_reload: yes
+        enabled: no
+        name: "{{ item }}"
+        masked: yes
+      loop:       #<--------------- Add or remove things
+        - avahi-daemon.service #Avahi is a system which facilitates service discovery on a local network. It is essentially an open-source implementation of Apple's Zeroconf (also known as Bonjour) 
+        - cups.service #The Common Unix Printing System (CUPS) service manages all the printers that are connected to your system. 
+        - ModemManager.service #ModemManager is a DBus-activated daemon which controls mobile broadband (2G/3G/4G) devices and connections.
+        - bluetooth.service #This service manages Bluetooth devices. It handles pairing, connecting, and managing connected devices.
+        - wpa_supplicant.service #WPA supplicant is a software application that aims to provide an implementation of the WPA protocol to be used in conjunction with a wireless network card. 
+        - colord.service #Manages color profiles for different devices like monitors, printers, scanners, etc.
+        - postfix@-.service #An MTA (Mail Transfer Agent), for sending and receiving emails.
+        # Add other services you want to disable or mask
+        # - service.name.service
+...
+

@@ -1,0 +1,2 @@
+[MTHOST]
+10.XXX.XXX.XXX ansible_port=2222
