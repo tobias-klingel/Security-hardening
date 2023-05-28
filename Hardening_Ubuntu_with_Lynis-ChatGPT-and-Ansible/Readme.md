@@ -1,7 +1,7 @@
 
 In an era of escalating cyber threats, enhancing server security is vital. This article showcases an innovative approach for hardening your Ubuntu server, using the combined powers of Lynis, ChatGPT-4, and Ansible.
 
-Through a step-by-step process, you'll learn how to perform a Lynis security audit, utilize ChatGPT-4 to translate the audit findings into Ansible playbooks, apply these playbooks to enhance security, and validate the hardening by re-running Lynis. You'll also witness the tangible improvement in the server's security posture by comparing the pre and post-hardening Lynis scores.
+Through a step-by-step process, you'll learn how to perform a Lynis security audit, utilise ChatGPT-4 to translate the audit findings into Ansible playbooks, apply these playbooks to enhance security, and validate the hardening by re-running Lynis. You'll also witness the tangible improvement in the server's security posture by comparing the pre and post-hardening Lynis scores.
 
 Join me as I delve into this unique fusion of AI, robust security auditing, and efficient configuration management to elevate your server's security.
 
@@ -13,7 +13,7 @@ The Ansible playbook can be found in the repository.
 ![Used stripe](./pics/lynis_ChatGPT4_ubuntu_improvedDrawing.jpeg) 
 
 
-**Steps to harden a Ubuntu worksatation with Lynis, ChatGPT 4 and Ansible**
+**Steps to harden a Ubuntu workstation with Lynis, ChatGPT 4 and Ansible**
 
 1. Run Lynis on the Ubuntu Server.
 2. Copy the Lynis results into ChatGPT4.
